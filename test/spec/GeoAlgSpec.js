@@ -62,16 +62,16 @@ describe("test data objects", function() {
 		var a = new geoalg.Point(0, 0),
 		    b = new geoalg.Point(3, 0),
 		    c = new geoalg.Point(0, 4);
-		expect(geoalg.Area(a, b, c)).toEqual(6);
-		expect(geoalg.Area(c, b, a)).toEqual(-6);
+		expect(geoalg.SignedArea(a, b, c)).toEqual(6);
+		expect(geoalg.SignedArea(c, b, a)).toEqual(-6);
 
 		// test degeracy
 		var d = new geoalg.Point(0.5*a.x+0.5*b.x, 0.5*a.y+0.5*b.y);
-		expect(geoalg.Area(a, b, d)).toEqual(0);
+		expect(geoalg.SignedArea(a, b, d)).toEqual(0);
 
 		// collinearity with a proper line
 		var l = new geoalg.Line(a, b);
-		expect(geoalg.Area(l.p1, l.p2, d)).toEqual(0);
+		expect(geoalg.SignedArea(l.p1, l.p2, d)).toEqual(0);
 	});
 
 	it("creates polygons", function() {
@@ -117,7 +117,32 @@ describe("test data objects", function() {
 		expect(poly.contains(testpt)).toEqual(0);
 		testpt.y = 0.25;
 		expect(poly.contains(testpt)).toEqual(3);
-			
+	});
+
+	it("calculates convex hulls", function() {
+		var a = new geoalg.Point(0, 0),
+		    b = new geoalg.Point(1, 0),
+		    c = new geoalg.Point(0.5, 0.25),
+		    d = new geoalg.Point(0, 1),
+		    hull = geoalg.ConvexHull([a, b, c, d]),
+		    i,
+		    testPts = [];
+		expect(hull).toContain(a);
+		expect(hull).toContain(b);
+		expect(hull).toContain(d);
+		expect(hull).not.toContain(c);
+		
+		c.x = c.y = 1; // unit square now
+		for(i = 0; i < 50; i++) {
+			testPts.push(new geoalg.Point(Math.random(), Math.random()));
+		}
+		testPts.push(a, b, c, d);
+		hull = geoalg.ConvexHull(testPts)
+		expect(hull).toContain(a);
+		expect(hull).toContain(b);
+		expect(hull).toContain(c);
+		expect(hull).toContain(d);
+		expect(hull.length).toEqual(4);
 	});
 
 }); // data objects test suite
