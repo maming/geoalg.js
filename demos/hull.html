@@ -2,41 +2,80 @@
 
 <html>
 	<head>
-		<title>Canvas from scratch</title>
+		<title>GeoAlg.js: Convex Hull</title>
 		
+		<link rel="stylesheet" href="stylesheets/base.css">
+		<link rel="stylesheet" href="stylesheets/skeleton.css">
+		<link rel="stylesheet" href="stylesheets/layout.css">
+
 		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+		
 
-		<script>
-			$(document).ready(function() {
-				var canvas = document.getElementById("hullCanvas");
-				var ctx = canvas.getContext("2d");
-				ctx.save();
-				ctx.fillStyle = "rgb(100, 100, 100)"; 
-				ctx.fillRect(0, 0, 500, 500);
-				ctx.restore();
-				$(canvas).mousedown(function(e) {
-					if (e.button === 0) {
-					var x = e.clientX,
-						y = e.clientY;
-					ctx.beginPath();
-					ctx.arc(x, y, 1, 0, Math.PI*2, false);
-					ctx.closePath();
-					ctx.fill();
-					}
-					else if (e.button === 2) {
-						ctx.clearRect(0, 0, 500, 500);
-						e.preventDefault();
-						return false;
-					}
-				});
-			});
-
-		</script>
 	</head>
 
 	<body>
-		<canvas id="hullCanvas" width="500" height="500">
-			<!-- Insert fallback content here -->
-		</canvas>
+		<div class="three columns">
+			<div class="one-third column"></div>
+			<div class="one-third column">
+				<canvas id="hullCanvas" width="500" height="500"></canvas>
+				<div class="canvas-control">
+					<button id="hullbutton">Calculate hull</button>
+					<button id="reset">Reset canvas</button>
+				</div>
+			</div>
+			<div class="one-third column"></div>
+
+		<script src="../src/GeoAlg.js"></script>
+				<script>
+			$(document).ready(function() {
+				var canvas = document.getElementById("hullCanvas"),
+					ctx = canvas.getContext("2d"),
+					resetButton = $('#reset'),
+					currentPts=[];
+				$(canvas).mousedown(function(e) {
+					if (e.button === 0) {
+					var x = e.clientX - this.offsetLeft,
+						y = e.clientY - this.offsetTop;
+					currentPts.push(new geoalg.Point(x, y));
+					ctx.beginPath();
+					ctx.arc(x, y, 4, 0, Math.PI*2, false);
+					ctx.closePath();
+					ctx.fill();
+					}
+				});
+				$('#hullbutton').click(function() {
+					ctx.save();
+					ctx.fillStyle ='#a00';
+					if (currentPts.length < 3)
+						return;
+					var ch = geoalg.ConvexHull(currentPts),
+						nHullPts = ch.length,
+						totalPts = currentPts.length,
+						i;
+					ctx.moveTo(ch[0].x, ch[0].y);
+					for (i = 1; i < nHullPts; i++) {
+						ctx.lineTo(ch[i].x, ch[i].y);
+					}
+					ctx.fill();
+					ctx.closePath();
+					ctx.fillStyle = '#000';
+					for (i = 0; i < totalPts; i++) {
+						ctx.beginPath();
+						ctx.arc(currentPts[i].x, currentPts[i].y, 4, 0, Math.PI*2, false);
+						ctx.closePath();
+						ctx.fill();
+					}
+					ctx.restore();
+				});
+				resetButton.click(function() {
+					ctx.save();
+					ctx.fillStyle = "rgb(200, 200, 200)"; 
+					ctx.fillRect(0, 0, 500, 500);
+					ctx.restore();
+				});
+				resetButton.click();
+			});
+
+		</script>
 	</body>
 </html>
