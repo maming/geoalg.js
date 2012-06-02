@@ -1,5 +1,5 @@
 var geoalg = (function() {
-	
+	"use strict";
 	function Point(x, y) {
 		this.x = x;
 		this.y = y;
@@ -17,7 +17,7 @@ var geoalg = (function() {
 		};
 	} // point definition
 
-	function Line() {
+	function Edge() {
 		this.p1 = {};
 		this.p2 = {};
 		switch (arguments.length) {
@@ -39,11 +39,49 @@ var geoalg = (function() {
 		}
 		
 		this.orientation = function(p) {
-			return geoalg.SignedArea(this.p1, this.p2, p);
+			return geoalg.signedArea(this.p1, this.p2, p);
 		};
 
 		this.isDegenerate = function() {
 			return (this.p1.x === this.p2.x && this.p1.y === this.p2.y);
+		};
+
+		/**
+			takes optional boolean to allow intersection of the lines and not
+			just the segments
+		**/
+		this.calcIntersection = function(inEdge) {
+			var allowExtendedIntersection = false,
+			s, t,
+			num, denom,
+			a = this.p1, b = this.p2,
+			c = inEdge.p1, d = inEdge.p2;
+			if (arguments.length > 1 && (typeof arguments[1]) === 'boolean') {
+				allowExtendedIntersection = arguments[1];
+			}
+			denom = a.x * (d.y - c.y) + 
+					b.x * (c.y - d.y) + 
+					d.x * (b.y - a.y) + 
+					c.x * (a.y - b.y);
+
+			if (denom === 0) {
+				return undefined;
+			}
+
+			num = a.x * (d.y - c.y) + 
+					c.x * (a.y - d.y) + 
+					d.x * (c.y - a.y);
+			s = num / denom;
+
+			num = - (a.x * (c.y - b.y) + 
+					b.x * (a.y - c.y) + 
+					c.x * (b.y - a.y));
+			t = num / denom;
+
+			if ( (0 <= s && s <= 1.0 && 0 <= t && t <= 1.0) || allowExtendedIntersection ) {
+				return new geoalg.Point(a.x + s * (b.x - a.x), a.y + s * (b.y - a.y));
+			}
+			return undefined;
 		};
 
 	} // line dev
@@ -100,21 +138,58 @@ var geoalg = (function() {
 
 			return 0;
 		};
+
+
 	} // polygon def
 
 	// Utility public
-	function SignedArea(a, b, c) {
+	function signedArea(a, b, c) {
 		var area2 = (b.x-a.x)*(c.y-a.y) - (c.x-a.x)*(b.y-a.y);
 		return area2/2.0;
 	}
 
-	function ConvexHull(inPoints) {
+	function intersects() {
+		var a, 
+			b, 
+			c, 
+			d,
+			abc,
+			abd,
+			cda,
+			cdb;
+		switch (arguments.length) {
+		case 2:
+			a = arguments[0].p1;
+			b = arguments[0].p2;
+			c = arguments[1].p1;
+			d = arguments[1].p2;
+			break;
+		case 4:
+			a = arguments[0];
+			b = arguments[1];
+			c = arguments[2];
+			d = arguments[3];
+			break;
+		default:
+			return undefined;
+		}
+		abc = signedArea(a, b, c);
+		abd = signedArea(a, b, d);
+		cda = signedArea(c, d, a);
+		cdb = signedArea(c, d, b);
+		if (abc === 0 || abd === 0 || cda === 0 || cdb === 0) {
+			return false;
+		}
+		return XOR(abc > 0, abd > 0) && XOR(cda > 0, cdb > 0);
+	}
+
+	function convexHull(inPoints) {
 		var nPoints = inPoints.length,
 			anchor = inPoints[0],
 			anchorInd = 0,
 			curPt,
 			sortedPoints,
-			signedArea,
+			sigArea,
 			i, 
 			hullPoints=[],
 			hullSize = 0;
@@ -136,9 +211,9 @@ var geoalg = (function() {
 
 		// sort in decreasing order (to use pop()) and mark collinear points for deletion
 		sortedPoints.sort(function(p, q) {
-			signedArea = SignedArea(anchor, p.point, q.point);
-			if (signedArea !== 0) {
-				return signedArea;
+			sigArea = signedArea(anchor, p.point, q.point);
+			if (sigArea !== 0) {
+				return sigArea;
 			}
 			var closer = (anchor.distSq(p.point) < anchor.distSq(q.point)) ? p : q;
 			closer.interior = true;
@@ -159,8 +234,8 @@ var geoalg = (function() {
 		// implement turning
 		do {
 			// test for a left turn
-			signedArea = SignedArea(hullPoints[hullSize-2], hullPoints[hullSize-1], curPt);
-			if (signedArea > 0) {
+			sigArea = signedArea(hullPoints[hullSize-2], hullPoints[hullSize-1], curPt);
+			if (sigArea > 0) {
 				hullPoints.push(curPt);
 				hullSize++;
 				curPt = sortedPoints.pop();
@@ -173,14 +248,18 @@ var geoalg = (function() {
 	}
 
 	// Utility private
+	function XOR(a, b) {
+		return (a || b) && !(a && b);
+	}
 
 	// public
 	return {
 		Point: Point,
-		Line: Line,
+		Edge: Edge,
 		Polygon: Polygon,
-		SignedArea: SignedArea,
-		ConvexHull: ConvexHull
+		signedArea: signedArea,
+		convexHull: convexHull,
+		intersects: intersects
 	};
 }());
 

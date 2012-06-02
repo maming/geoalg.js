@@ -1,10 +1,10 @@
 describe("test data objects", function() {
-
+	"use strict";
 	beforeEach(function() {
 		this.addMatchers({
 			isZeroVector: function(v) {
 				for(var i=0, l=v.length; i<v; i++) {
-					if (v[i] != 0) {
+					if (v[i] !== 0) {
 						return false;
 					}
 				}
@@ -27,16 +27,36 @@ describe("test data objects", function() {
 		expect(p.y).toEqual(3);
 	});
 
+	it ("performs predicate line intersection checks", function() {
+		var e1 = new geoalg.Edge(0, 0, 5, 5),
+			e2 = new geoalg.Edge(1, 4, 4, 1);
+		expect(geoalg.intersects(e1, e2)).toEqual(true);
+		e1 = new geoalg.Edge(0, 0, 1, 4);
+		e2 = new geoalg.Edge(4, 1, 5, 5);
+		expect(geoalg.intersects(e1, e2)).toEqual(false);
+		e1 = new geoalg.Edge(0, 0, 0, 2);
+		e2 = new geoalg.Edge(0, 1, 1, 0);
+		expect(geoalg.intersects(e1, e2)).toEqual(false);
+	});
+
+	it("calculates intersection points", function() {
+		var e1 = new geoalg.Edge(-1, 0, 1, 0),
+			e2 = new geoalg.Edge(0, -1, 0, 1),
+			out = e1.calcIntersection(e2);
+		expect(out.x).toEqual(0);
+		expect(out.y).toEqual(0);
+	});
+
 	it("creates points nicely", function () {
 		var p1 = new geoalg.Point(1, 2),
-			p2 = new geoalg.Point(3, 4);
-		l = new geoalg.Line(p1, p2);
+			p2 = new geoalg.Point(3, 4),
+			l = new geoalg.Edge(p1, p2);
 		expect(l.p1.x).toEqual(1);
 		expect(l.p1.y).toEqual(2);
 		expect(l.p2.x).toEqual(3);
 		expect(l.p2.y).toEqual(4);
 
-		l = new geoalg.Line(1, 2, 3, 4);
+		l = new geoalg.Edge(1, 2, 3, 4);
 		expect(l.p1.x).toEqual(1);
 		expect(l.p1.y).toEqual(2);
 		expect(l.p2.x).toEqual(3);
@@ -45,13 +65,13 @@ describe("test data objects", function() {
 
 
 	it("returns the origin if the input is bad", function() {
-		var l = new geoalg.Line(1, 2, 3);		
+		var l = new geoalg.Edge(1, 2, 3);		
 		expect(l.p1.x).toEqual(0);
 		expect(l.p1.y).toEqual(0);
 		expect(l.p2.x).toEqual(0);
 		expect(l.p2.y).toEqual(0);
 
-		l = new geoalg.Line();
+		l = new geoalg.Edge();
 		expect(l.p1.x).toEqual(0);
 		expect(l.p1.y).toEqual(0);
 		expect(l.p2.x).toEqual(0);
@@ -60,18 +80,18 @@ describe("test data objects", function() {
 
 	it("performs the signed area of triangles", function() {
 		var a = new geoalg.Point(0, 0),
-		    b = new geoalg.Point(3, 0),
-		    c = new geoalg.Point(0, 4);
-		expect(geoalg.SignedArea(a, b, c)).toEqual(6);
-		expect(geoalg.SignedArea(c, b, a)).toEqual(-6);
+			b = new geoalg.Point(3, 0),
+			c = new geoalg.Point(0, 4);
+		expect(geoalg.signedArea(a, b, c)).toEqual(6);
+		expect(geoalg.signedArea(c, b, a)).toEqual(-6);
 
 		// test degeracy
 		var d = new geoalg.Point(0.5*a.x+0.5*b.x, 0.5*a.y+0.5*b.y);
-		expect(geoalg.SignedArea(a, b, d)).toEqual(0);
+		expect(geoalg.signedArea(a, b, d)).toEqual(0);
 
 		// collinearity with a proper line
-		var l = new geoalg.Line(a, b);
-		expect(geoalg.SignedArea(l.p1, l.p2, d)).toEqual(0);
+		var l = new geoalg.Edge(a, b);
+		expect(geoalg.signedArea(l.p1, l.p2, d)).toEqual(0);
 	});
 
 	it("creates polygons", function() {
@@ -124,7 +144,7 @@ describe("test data objects", function() {
 		    b = new geoalg.Point(1, 0),
 		    c = new geoalg.Point(0.5, 0.25),
 		    d = new geoalg.Point(0, 1),
-		    hull = geoalg.ConvexHull([a, b, c, d]),
+		    hull = geoalg.convexHull([a, b, c, d]),
 		    i,
 		    testPts = [];
 		expect(hull).toContain(a);
@@ -137,7 +157,7 @@ describe("test data objects", function() {
 			testPts.push(new geoalg.Point(Math.random(), Math.random()));
 		}
 		testPts.push(a, b, c, d);
-		hull = geoalg.ConvexHull(testPts)
+		hull = geoalg.convexHull(testPts)
 		expect(hull).toContain(a);
 		expect(hull).toContain(b);
 		expect(hull).toContain(c);
