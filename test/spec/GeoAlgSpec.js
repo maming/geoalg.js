@@ -42,9 +42,20 @@ describe("test data objects", function() {
 	it("calculates intersection points", function() {
 		var e1 = new geoalg.Edge(-1, 0, 1, 0),
 			e2 = new geoalg.Edge(0, -1, 0, 1),
-			out = e1.calcIntersection(e2);
+			e3 = new geoalg.Edge(-1, 1, 1, 1),
+			e4 = new geoalg.Edge(0, 0, 1, 1),
+			e5 = new geoalg.Edge(0, 1, 1, 0),
+			e6 = new geoalg.Edge(0.5, 0.5, 1.5, 1.5),
+			out = e1.intersect(e2);
 		expect(out.x).toEqual(0);
 		expect(out.y).toEqual(0);
+		out = e1.intersect(e3);
+		expect(out).toBeUndefined();
+		out = e4.intersect(e5);
+		expect(out.x).toEqual(0.5);
+		expect(out.y).toEqual(0.5);
+		out = e6.intersect(e4);
+		expect(out).toBeDefined();
 	});
 
 	it("creates points nicely", function () {
@@ -137,6 +148,20 @@ describe("test data objects", function() {
 		expect(poly.contains(testpt)).toEqual(0);
 		testpt.y = 0.25;
 		expect(poly.contains(testpt)).toEqual(3);
+	});
+
+	it("supports polygon-line intersection", function() {
+		var a = new geoalg.Point(0, 0),
+		    b = new geoalg.Point(1, 0),
+		    c = new geoalg.Point(0.25, 0.5),
+		    d = new geoalg.Point(1, 1),
+		    e = new geoalg.Point(0, 1),
+		    poly = new geoalg.Polygon(a, b, c, d, e),
+		    l = new geoalg.Edge(-1, -1, 1, 1);
+		expect(poly.intersectLine(l)).toEqual(true);
+		l.p1.x = l.p1.y = -1;
+		l.p2.x = l.p2.y = -2;
+		expect(poly.intersectLine(l)).toEqual(false);
 	});
 
 	it("calculates convex hulls", function() {

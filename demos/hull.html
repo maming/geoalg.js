@@ -4,76 +4,160 @@
 	<head>
 		<title>GeoAlg.js: Convex Hull</title>
 		
-		<link rel="stylesheet" href="stylesheets/base.css">
-		<link rel="stylesheet" href="stylesheets/skeleton.css">
-		<link rel="stylesheet" href="stylesheets/layout.css">
-
-		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+		<link rel="stylesheet" href="./css/bootstrap.css"></link>
+		<link rel="stylesheet" href="./css/bootstrap-responsive.
+		css"></link>
 	</head>
 
 	<body>
-		<div class="three columns">
-			<div class="one-third column"></div>
-			<div class="one-third column">
-				<canvas id="hullCanvas" width="500" height="500"></canvas>
-				<div class="canvas-control">
-					<button id="hullbutton">Calculate hull</button>
-					<button id="reset">Reset canvas</button>
+		<div class="navbar">
+			<div class='navbar-inner'>
+				<div class='container'>
+					<a class='brand' href="#">GeoAlg.js</a>
+					<div class='nav-collapse'>
+						<ul class='nav'>
+							<li class='active'>
+								<a href='./hull.html'>Convex Hull</a>
+							</li>
+							<li>
+								<a href='./membership.html'>Point membership</a>
+							</li>
+							<li>
+								<a href='./triangulation.html'>Triangulation</a>
+							</li>
+						</ul>
+					</div>
 				</div>
 			</div>
-			<div class="one-third column"></div>
+		</div>
 
-		<script src="../src/GeoAlg.js"></script>
-				<script>
-			$(document).ready(function() {
-				var canvas = document.getElementById("hullCanvas"),
-					ctx = canvas.getContext("2d"),
-					resetButton = $('#reset'),
-					currentPts=[];
-				$(canvas).mousedown(function(e) {
-					if (e.button === 0) {
-					var x = e.clientX - this.offsetLeft,
-						y = e.clientY - this.offsetTop;
-					currentPts.push(new geoalg.Point(x, y));
+		<div class="container">
+		<div class="row">
+			<div class="span12">
+				<canvas id="hullCanvas" width="500" height="500"></canvas>
+				<div id="canvas-control">
+					<div class="btn-toolbar">
+						<div class='btn-group'>
+							<button class='btn' id="hullbutton">Update hull</button>
+							<button class='btn' id="reset">Reset canvas</button>
+						</div>
+						<div class = 'btn-group'>
+							<a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
+								Load samples<span class="caret"></span>
+							</a>
+							<ul class="dropdown-menu">
+								<li><a href="#" id="degenerateButton">Degenerate</a></li>
+								<li><a href="#" id="bigSampleButton">Large (15000 points)</a></li>
+							</ul>
+						</div>
+						<div class='btn-group'>
+							<button class='btn' id="pointViz">Hide points</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+	<script src="../src/GeoAlg.js"></script>
+	<script src="./js/bootstrap.js"></script>
+	<script src="./js/bootstrap-dropdown.js"></script>
+	<script>
+		$(document).ready(function() {
+			$('.dropdown-toggle').dropdown();
+			var canvas = document.getElementById("hullCanvas"),
+				ctx = canvas.getContext("2d"),
+				resetButton = $('#reset'),
+				hullButton = $('#hullbutton'),
+				currentPts=[],
+				visButton = $('#pointViz');
+			$(canvas).mousedown(function(e) {
+				if (e.button === 0) {
+				var x = e.clientX - this.offsetLeft,
+					y = e.clientY - this.offsetTop;
+				currentPts.push(new geoalg.Point(x, y));
+				ctx.beginPath();
+				ctx.arc(x, y, 4, 0, Math.PI*2, false);
+				ctx.closePath();
+				ctx.fill();
+				}
+			});
+			visButton.attr('disabled', true);
+			hullButton.click(function(e) {
+				ctx.save();
+				ctx.fillStyle ='#a00';
+				if (currentPts.length < 3) {
+					return;
+				}
+				var ch = geoalg.convexHull(currentPts),
+					nHullPts = ch.length,
+					totalPts = currentPts.length,
+					i;
+				ctx.moveTo(ch[0].x, ch[0].y);
+				for (i = 1; i < nHullPts; i++) {
+					ctx.lineTo(ch[i].x, ch[i].y);
+				}
+				ctx.fill();
+				ctx.closePath();
+				ctx.fillStyle = '#000';
+				for (i = 0; i < totalPts; i++) {
 					ctx.beginPath();
-					ctx.arc(x, y, 4, 0, Math.PI*2, false);
+					ctx.arc(currentPts[i].x, currentPts[i].y, 4, 0, Math.PI*2, false);
 					ctx.closePath();
 					ctx.fill();
-					}
-				});
-				$('#hullbutton').click(function() {
-					ctx.save();
-					ctx.fillStyle ='#a00';
-					if (currentPts.length < 3)
-						return;
-					var ch = geoalg.ConvexHull(currentPts),
-						nHullPts = ch.length,
-						totalPts = currentPts.length,
-						i;
-					ctx.moveTo(ch[0].x, ch[0].y);
-					for (i = 1; i < nHullPts; i++) {
-						ctx.lineTo(ch[i].x, ch[i].y);
-					}
-					ctx.fill();
+				}
+				ctx.restore();
+			});
+			resetButton.click(function() {
+				currentPts=[];
+				clearCanvas();
+			});
+			resetButton.click();
+
+			function clearCanvas() {
+				ctx.save();
+				ctx.fillStyle = "rgb(230, 230, 230)"; 
+				ctx.fillRect(0, 0, 500, 500);
+				ctx.restore();
+			};
+
+			function redraw() {
+				var nPts = currentPts.length,
+					i;
+				clearCanvas();
+				for (i = 0; i < nPts; i++) {
+					ctx.beginPath();
+					ctx.arc(currentPts[i].x, currentPts[i].y, 4, 0, Math.PI*2, false);
 					ctx.closePath();
-					ctx.fillStyle = '#000';
-					for (i = 0; i < totalPts; i++) {
-						ctx.beginPath();
-						ctx.arc(currentPts[i].x, currentPts[i].y, 4, 0, Math.PI*2, false);
-						ctx.closePath();
-						ctx.fill();
-					}
-					ctx.restore();
-				});
-				resetButton.click(function() {
-					ctx.save();
-					ctx.fillStyle = "rgb(200, 200, 200)"; 
-					ctx.fillRect(0, 0, 500, 500);
-					ctx.restore();
-				});
-				resetButton.click();
+					ctx.fill();
+				}
+			};
+
+			$('#degenerateButton').click(function() {
+				var i;
+				currentPts=[];
+				currentPts.push(new geoalg.Point(100, 100));
+				currentPts.push(new geoalg.Point(100, 400));
+				currentPts.push(new geoalg.Point(400, 100));
+				currentPts.push(new geoalg.Point(400, 400));
+				for (i = 10; i; i--) {
+					currentPts.push(new geoalg.Point(250, 250));
+				}
+				redraw();
 			});
 
-		</script>
+			$('#bigSampleButton').click(function() {
+				var nMax = 20000,
+					i;
+				currentPts=[];
+				for(i = 0; i < nMax; i++) {
+					currentPts.push(new geoalg.Point(Math.random() * 400 + 50, Math.random() * 400 + 50));
+				}
+				redraw();
+			});
+		});
+
+	</script>
 	</body>
 </html>

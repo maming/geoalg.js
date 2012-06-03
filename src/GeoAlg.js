@@ -1,25 +1,31 @@
 var geoalg = (function() {
 	"use strict";
 	function Point(x, y) {
+		if (!(this instanceof Point)) {
+			return new Point(x, y);
+		}
 		this.x = x;
 		this.y = y;
+	}
 
-		this.distSq = function(p) {
-			return Math.pow((p.y-this.y), 2) + Math.pow((p.x-this.x), 2);
-		};
+	Point.prototype.distSq = function(p) {
+		return Math.pow((p.y-this.y), 2) + Math.pow((p.x-this.x), 2);
+	};
 
-		this.isValid = function() {
+	Point.prototype.isValid = function() {
 			return !(isNaN(this.x) || isNaN(this.y));
-		};
+	};
 
-		this.clone = function() {
+	Point.prototype.clone = function() {
 			return new geoalg.Point(this.x, this.y);
-		};
-	} // point definition
+	};
 
 	function Edge() {
-		this.p1 = {};
-		this.p2 = {};
+		if (!(this instanceof Edge)) {
+			return new Edge(arguments);
+		}
+		this.p1 = new Point(0, 0);
+		this.p2 = new Point(0, 0);
 		switch (arguments.length) {
 		case 2:
 			this.p1.x = arguments[0].x;
@@ -37,57 +43,62 @@ var geoalg = (function() {
 			this.p1.x = this.p1.y = this.p2.x = this.p2.y = 0;
 			break;
 		}
-		
-		this.orientation = function(p) {
-			return geoalg.signedArea(this.p1, this.p2, p);
-		};
+	}
 
-		this.isDegenerate = function() {
-			return (this.p1.x === this.p2.x && this.p1.y === this.p2.y);
-		};
+	Edge.prototype.orientation = function(p) {
+		return geoalg.signedArea(this.p1, this.p2, p);
+	};
 
-		/**
-			takes optional boolean to allow intersection of the lines and not
-			just the segments
-		**/
-		this.calcIntersection = function(inEdge) {
-			var allowExtendedIntersection = false,
-			s, t,
-			num, denom,
-			a = this.p1, b = this.p2,
-			c = inEdge.p1, d = inEdge.p2;
-			if (arguments.length > 1 && (typeof arguments[1]) === 'boolean') {
-				allowExtendedIntersection = arguments[1];
-			}
-			denom = a.x * (d.y - c.y) + 
-					b.x * (c.y - d.y) + 
-					d.x * (b.y - a.y) + 
-					c.x * (a.y - b.y);
+	Edge.prototype.isDegenerate = function() {
+		return (this.p1.x === this.p2.x && this.p1.y === this.p2.y);
+	};
 
-			if (denom === 0) {
-				return undefined;
-			}
+	/**
+		takes optional boolean to allow intersection of the lines and not
+		just the segments
 
-			num = a.x * (d.y - c.y) + 
-					c.x * (a.y - d.y) + 
-					d.x * (c.y - a.y);
-			s = num / denom;
+		if two segments overlap, this will return a sample point from the 
+		overlap edge but not the entire thing
 
-			num = - (a.x * (c.y - b.y) + 
-					b.x * (a.y - c.y) + 
-					c.x * (b.y - a.y));
-			t = num / denom;
+		TODO: (?) implement richer intersection that return the edge - this
+			is more edge cases
+	**/
+	Edge.prototype.intersect = function(inEdge) {
+		var s, t,
+		num, denom,
+		a = this.p1, b = this.p2,
+		c = inEdge.p1, d = inEdge.p2;
 
-			if ( (0 <= s && s <= 1.0 && 0 <= t && t <= 1.0) || allowExtendedIntersection ) {
-				return new geoalg.Point(a.x + s * (b.x - a.x), a.y + s * (b.y - a.y));
-			}
-			return undefined;
-		};
+		denom = a.x * (d.y - c.y) + 
+				b.x * (c.y - d.y) + 
+				d.x * (b.y - a.y) + 
+				c.x * (a.y - b.y);
 
-	} // line dev
+		if (denom === 0) {
+			return parallelIntersection(a, b, c, d); 
+		}
+
+		num = a.x * (d.y - c.y) + 
+				c.x * (a.y - d.y) + 
+				d.x * (c.y - a.y);
+		s = num / denom;
+
+		num = - (a.x * (c.y - b.y) + 
+				b.x * (a.y - c.y) + 
+				c.x * (b.y - a.y));
+		t = num / denom;
+
+		if ( 0 <= s && s <= 1.0 && 0 <= t && t <= 1.0 ) {
+			return new geoalg.Point(a.x + s * (b.x - a.x), a.y + s * (b.y - a.y));
+		}
+		return undefined;
+	};
 
 	// ASSUMES POINTS IN CCW ORDER
 	function Polygon() {
+		if (!(this instanceof Polygon)) {
+			return new Polygon(arguments);
+		}
 		this.points = [];
 		var argLen = arguments.length,
 			shouldClone = true,
@@ -99,48 +110,80 @@ var geoalg = (function() {
 		for (var i=0; i<argLen; i++) {
 			this.points.push(shouldClone? arguments[i].clone() : arguments[i]);
 		}
+	}
 
-		// from o'rourke p244
-		// return 0, 1, 2, 3 for dimension of intersection
-		// e.g. none, point, edge, interior
-		this.contains = function(q) {
-			var intersections = 0,
-				pts = this.points,
-				nPoints = pts.length,
-				p1 = pts[nPoints-1],
-				p2 = pts[0],
-				count = 0,
-				lcross = 0,
-				rcross = 0,
-				lstraddle = 0,
-				rstraddle = 0;
-			do {
-				if(q.x === p1.x && q.y === p1.y) {
-					return 1;
-				}
-				lstraddle = (p1.y > q.y) !== (p2.y > q.y);
-				rstraddle = (p1.y < q.y) !== (p2.y < q.y);
+	// from o'rourke p244
+	// return 0, 1, 2, 3 for dimension of intersection
+	// e.g. none, point, edge, interior
+	Polygon.prototype.contains = function(q) {
+		var intersections = 0,
+			pts = this.points,
+			nPoints = pts.length,
+			p1 = pts[nPoints-1],
+			p2 = pts[0],
+			count = 0,
+			lcross = 0,
+			rcross = 0,
+			lstraddle = 0,
+			rstraddle = 0,
+			testX, testY;
 
-				if (lstraddle === true || rstraddle === true) {
-					// calculate x value
-					var x = (p2.x * q.y - p1.x * q.y - p2.x * p1.y + p1.x * p2.y)/(p2.y - p1.y);
-					if (rstraddle === true && x > q.x) { rcross += 1; }
-					if (lstraddle === true && x < q.x) { lcross += 1; }
-				}
-				count += 1;
-				p1 = p2;
-				p2 = pts[count];
-			} while (count < nPoints);
+		switch (arguments.length) {
+		case 1:
+			testX = arguments[0].x;
+			testY = arguments[0].y;
+			break;
+		case 2: 
+			testX = arguments[0];
+			testY = arguments[1];
+			break;
+		default:
+			return undefined;
+		}
 
-			if ( (rcross % 2) !== (lcross % 2) ) { return 2; }
+		do {
+			if(testX === p1.x && testY === p1.y) {
+				return 1;
+			}
+			lstraddle = (p1.y > testY) !== (p2.y > testY);
+			rstraddle = (p1.y < testY) !== (p2.y < testY);
 
-			if ( (rcross % 2) === 1) { return 3; }
+			if (lstraddle === true || rstraddle === true) {
+				// calculate x value
+				var x = (p2.x * testY - p1.x * testY - p2.x * p1.y + p1.x * p2.y)/(p2.y - p1.y);
+				if (rstraddle === true && x > testX) { rcross += 1; }
+				if (lstraddle === true && x < testX) { lcross += 1; }
+			}
+			count += 1;
+			p1 = p2;
+			p2 = pts[count];
+		} while (count < nPoints);
 
-			return 0;
-		};
+		if ( (rcross % 2) !== (lcross % 2) ) { return 2; }
 
+		if ( (rcross % 2) === 1) { return 3; }
 
-	} // polygon def
+		return 0;
+	};
+
+	Polygon.prototype.intersectLine = function(l) {
+		var nPts = this.points.length,
+			curEdge = new geoalg.Edge(this.points[nPts-1], this.points[0]),
+			i = 1;
+
+		if (intersects(curEdge, l) === true) {
+			return true;
+		}
+
+		for (i = 1; i < nPts; i++) {
+			curEdge.p1 = curEdge.p2;
+			curEdge.p2 = this.points[i];
+			if (intersects(curEdge, l) === true) {
+				return true;
+			}
+		}
+		return false;
+	};
 
 	// Utility public
 	function signedArea(a, b, c) {
@@ -180,9 +223,12 @@ var geoalg = (function() {
 		if (abc === 0 || abd === 0 || cda === 0 || cdb === 0) {
 			return false;
 		}
-		return XOR(abc > 0, abd > 0) && XOR(cda > 0, cdb > 0);
+		return xor(abc > 0, abd > 0) && xor(cda > 0, cdb > 0);
 	}
 
+	/**
+		inPoint is altered
+	**/
 	function convexHull(inPoints) {
 		var nPoints = inPoints.length,
 			anchor = inPoints[0],
@@ -247,9 +293,52 @@ var geoalg = (function() {
 		return hullPoints;
 	}
 
+	/**
+		Bentley-
+	**/
+	function intersectEdgeSet() {
+		var nEdge = arguments.length,
+			i;
+
+	}
+
 	// Utility private
-	function XOR(a, b) {
+	function xor(a, b) {
 		return (a || b) && !(a && b);
+	}
+
+	/**
+		assuming c is on L_{ab}, is it on the segment between a & b
+	**/
+	function between(a, b, c) {
+		if (a.x !== b.x) {
+			return ((a.x <= c.x) && (c.x <= b.x)) || ((a.x >= c.x) && (c.x >= b.x));
+		} else {
+			return ((a.y <= c.y) && (c.y <= b.y)) || ((a.y >= c.y) && (c.y >= b.y));
+		}
+	}
+
+	/**
+		if L_ab and L_cd are parallel, return a sample point from their intersection, if possible
+	**/
+	function parallelIntersection(a, b, c, d) {
+		var out;
+		if (signedArea(a, b, c) !== 0) {
+			return out;
+		}
+		if ( between(a, b, c) ) {
+			out = c;
+		}
+		if ( between(a, b, d) ) {
+			out = d;
+		}
+		if ( between(c, d, a) ) {
+			out = a;
+		}
+		if ( between(c, d, b) ) {
+			out = b;
+		}
+		return out.clone();
 	}
 
 	// public
@@ -259,7 +348,8 @@ var geoalg = (function() {
 		Polygon: Polygon,
 		signedArea: signedArea,
 		convexHull: convexHull,
-		intersects: intersects
+		intersects: intersects,
+		intersectEdgeSet: intersectEdgeSet
 	};
 }());
 
