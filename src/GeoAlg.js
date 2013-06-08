@@ -286,8 +286,12 @@ var geoalg = (function() {
 				hullSize++;
 				curPt = sortedPoints.pop();
 			} else {
-				hullPoints.pop();
-				hullSize--;
+				if(hullSize>2){
+					hullPoints.pop();
+					hullSize--;
+				}else{
+					curPt = sortedPoints.pop();
+				}
 			}
 		} while (curPt !== undefined);
 		return hullPoints;
